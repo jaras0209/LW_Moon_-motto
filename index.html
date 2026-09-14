@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f3ead8" />
+  <meta name="description" content="馬力全開中秋活動月下抽箴言：隨機抽取一句話，並下載成專屬中秋小卡。" />
+  <title>月下抽箴言｜馬力全開中秋佳節</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header" id="siteHeader">
+      <a class="brand" id="brandLink" href="#top" aria-label="回到頁首">
+        <span class="brand-mark">月</span>
+        <span><small>愛語中秋佳節</small><strong>馬力全開</strong></span>
+      </a>
+      <a class="back-link" id="backLink" href="https://midautumn-bbq-night.twt249.chatgpt.site/" target="_top" rel="noopener">← 回活動首頁</a>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="paper-noise" aria-hidden="true"></div>
+        <div class="hero-moon" aria-hidden="true">
+          <span class="moon-rabbit">☾</span>
+        </div>
+        <div class="branch branch-a" aria-hidden="true"></div>
+        <div class="branch branch-b" aria-hidden="true"></div>
+        <div class="hero-copy">
+          <p class="eyebrow" id="eyebrow">MID-AUTUMN · MOONLIGHT MESSAGE</p>
+          <h1><span>月下</span><br>抽箴言</h1>
+          <p class="lead">今晚，也許有一句話正好適合你。<br>輕輕點一下，領受屬於此刻的一句祝福。</p>
+          <div class="hero-notes">
+            <span>隨機抽取</span><i>·</i><span>可重複抽到</span><i>·</i><span>可下載小卡</span>
+          </div>
+        </div>
+        <div class="seal" aria-hidden="true"><b>月下</b><span>一籤</span></div>
+      </section>
+
+      <section class="draw-section" aria-labelledby="drawTitle">
+        <div class="section-index"><span>01</span><b>領受一句話</b></div>
+        <div class="section-heading">
+          <p class="kicker">DRAW A MESSAGE</p>
+          <h2 id="drawTitle">現在，為自己抽一張</h2>
+          <p>每次抽取皆會從全部箴言重新隨機產生，因此同一句之後可能再次出現。預設只避免連續兩次抽到完全相同的內容。</p>
+        </div>
+
+        <div class="draw-grid">
+          <article class="draw-console">
+            <div class="ornament">✦　☾　✦</div>
+            <p class="console-small">MOONLIGHT MESSAGE</p>
+            <h3>閉上眼睛一秒，<br>再按下這個按鈕。</h3>
+            <p class="console-copy">不用挑選、不用搜尋。讓一句話在今晚與你相遇。</p>
+            <button class="draw-button" id="drawBtn" type="button">
+              <span class="draw-button-moon">月</span>
+              <span><small>CLICK TO DRAW</small><b>抽一張箴言</b></span>
+            </button>
+            <div class="status-line" role="status" aria-live="polite">
+              <span class="status-dot"></span><span id="statusText">正在讀取箴言資料…</span>
+            </div>
+          </article>
+
+          <article class="result-stage" id="resultStage">
+            <div class="card-placeholder" id="placeholderCard">
+              <div class="placeholder-moon">○</div>
+              <p>你的箴言會出現在這裡</p>
+              <small>抽取後可下載成 1080 × 1350 PNG 小卡</small>
+            </div>
+            <canvas id="proverbCanvas" width="1080" height="1350" aria-label="箴言小卡預覽" hidden></canvas>
+          </article>
+        </div>
+
+        <div class="result-actions" id="resultActions" hidden>
+          <button class="action primary" id="downloadBtn" type="button">↓ 下載小卡 PNG</button>
+          <button class="action" id="shareBtn" type="button">分享這張小卡 ↗</button>
+          <button class="action" id="copyBtn" type="button">複製文字</button>
+          <button class="action quiet" id="drawAgainBtn" type="button">再抽一次 ↻</button>
+        </div>
+      </section>
+
+      <section class="about-section">
+        <div class="section-index"><span>02</span><b>關於這張卡</b></div>
+        <div class="about-grid">
+          <div>
+            <p class="kicker">KEEP THE MOMENT</p>
+            <h2>把今晚的一句話，留在手機裡。</h2>
+          </div>
+          <div class="about-copy">
+            <p>每張下載卡片會自動帶入你抽到的內容與出處，並以中秋滿月、桂花色與夜山為主題產生。圖片直接在你的瀏覽器裡完成，不需要上傳個人資料。</p>
+            <p>如果你喜歡這一句，也可以分享給今天一起烤肉、一起同行的人。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="footer-cta">
+        <span class="footer-moon">☾</span>
+        <p>月亮會圓，烤肉會香，大家會笑。</p>
+        <a id="bottomBackLink" href="https://midautumn-bbq-night.twt249.chatgpt.site/" target="_top" rel="noopener">回到活動行前通知 →</a>
+      </section>
+    </main>
+
+    <footer>
+      <span>馬力全開 · 中秋佳節</span>
+      <span id="dataVersion">箴言資料載入中</span>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

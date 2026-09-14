@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "title": "月下箴言",
+    "subtitle": "在月光裡，領受一句給今天的話",
+    "updatedAt": "YYYY-MM-DD",
+    "version": 1
+  },
+  "items": [
+    {
+      "id": "p001",
+      "text": "請填入第一則箴言",
+      "reference": "出處，可留空",
+      "category": "分類，可留空",
+      "enabled": true
+    },
+    {
+      "id": "p002",
+      "text": "請填入第二則箴言",
+      "reference": "",
+      "category": "",
+      "enabled": true
+    }
+  ]
+}

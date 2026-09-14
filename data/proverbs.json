@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "title": "月下箴言",
+    "subtitle": "在月光裡，領受一句給今天的話",
+    "updatedAt": "2026-09-14",
+    "version": 1
+  },
+  "items": [
+    {
+      "id": "sample-001",
+      "text": "願你今晚在月光與炭火旁，記得恩典總比憂慮更值得數算。",
+      "reference": "示範箴言 01",
+      "category": "感恩",
+      "enabled": true
+    },
+    {
+      "id": "sample-002",
+      "text": "真正的豐盛，不只是桌上的美味，也是彼此相聚時願意分享的心。",
+      "reference": "示範箴言 02",
+      "category": "分享",
+      "enabled": true
+    },
+    {
+      "id": "sample-003",
+      "text": "願你帶著喜樂而來，也帶著比來時更多的祝福回家。",
+      "reference": "示範箴言 03",
+      "category": "祝福",
+      "enabled": true
+    },
+    {
+      "id": "sample-004",
+      "text": "有些光不只來自月亮，也來自你願意鼓勵身旁人的一句話。",
+      "reference": "示範箴言 04",
+      "category": "鼓勵",
+      "enabled": true
+    }
+  ]
+}

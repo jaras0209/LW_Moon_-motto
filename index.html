@@ -1,115 +1,90 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#f3ead8" />
-  <meta name="description" content="馬力全開中秋活動月下抽箴言：點一下抽取一句話，並下載成專屬中秋小卡。" />
-  <title>月下抽箴言｜馬力全開中秋佳節</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3ead8">
+  <meta name="description" content="神給你的一句話，收藏今晚的祝福。">
+  <meta property="og:title" content="神給你的一句話">
+  <meta property="og:description" content="馬力全開 · 中秋佳節">
+  <title>神給你的一句話｜馬力全開中秋佳節</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23d6b66c'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;600;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=20260914-2">
+  <script src="config.js?v=20260914-2" defer></script>
+  <script src="app.js?v=20260914-2" defer></script>
 </head>
 <body>
   <div class="page-shell">
-    <header class="site-header" id="siteHeader">
-      <a class="brand" href="#top" aria-label="回到頁首">
+    <header class="site-header">
+      <a class="brand" id="backLink" href="https://midautumn-bbq-night.twt249.chatgpt.site/" target="_top" rel="noopener">
         <span class="brand-mark" aria-hidden="true">月</span>
-        <span class="brand-copy"><small>愛語中秋佳節</small><strong>馬力全開</strong></span>
+        <span class="brand-copy"><strong>馬力全開</strong><small>中秋佳節</small></span>
       </a>
-      <a class="back-link" id="backLink" href="https://midautumn-bbq-night.twt249.chatgpt.site/" target="_top" rel="noopener">回活動首頁</a>
+      <a class="back-link" id="topBackLink" href="https://midautumn-bbq-night.twt249.chatgpt.site/" target="_top" rel="noopener">活動首頁 <span aria-hidden="true">↗</span></a>
     </header>
 
     <main id="top" class="experience">
       <section class="draw-experience" aria-labelledby="pageTitle">
-        <div class="paper-noise" aria-hidden="true"></div>
-        <div class="stars" aria-hidden="true">
-          <i class="star star-1">✦</i><i class="star star-2">·</i><i class="star star-3">✧</i>
-          <i class="star star-4">·</i><i class="star star-5">✦</i><i class="star star-6">·</i>
-          <i class="star star-7">✧</i><i class="star star-8">·</i>
-        </div>
+        <div class="stars" aria-hidden="true"><i>✦</i><i>·</i><i>✧</i><i>·</i><i>✦</i><i>·</i></div>
 
-        <div class="moon-scene" id="moonScene">
-          <div class="moon-glow" aria-hidden="true"></div>
-          <button class="moon-button" id="moonButton" type="button" aria-label="抽一張箴言" disabled>
-            <span class="moon-face" aria-hidden="true">
-              <i class="crater crater-a"></i>
-              <i class="crater crater-b"></i>
-              <i class="crater crater-c"></i>
-            </span>
-          </button>
+        <div class="hero" id="hero">
+          <div class="moon-scene" id="moonScene">
+            <div class="moon-glow" aria-hidden="true"></div>
+            <div class="moon-orbit">
+              <button class="moon-button" id="moonButton" type="button" aria-label="抽一句話" disabled>
+                <span class="moon-face" aria-hidden="true"><i class="crater crater-a"></i><i class="crater crater-b"></i><i class="crater crater-c"></i></span>
+                <span class="moon-rabbit" id="moonRabbit" aria-hidden="true">
+                  <svg viewBox="0 0 180 180" focusable="false">
+                    <path id="rabbitShape" d="M56 73 C48 67 41 55 37 42 C32 26 25 12 20 15 C12 20 22 45 30 59 L39 75 C34 79 31 84 30 89 L21 98 Q18 104 27 107 L40 111 Q43 123 52 131 L47 144 Q42 156 50 157 L75 157 Q82 157 88 153 C103 160 129 159 143 154 Q160 150 155 142 L149 134 C161 136 169 129 167 119 C166 109 157 106 149 113 C147 96 138 85 126 80 C110 73 96 81 89 95 Q82 89 75 86 L78 70 C90 51 100 23 91 18 C82 14 67 44 63 64 Q60 71 56 73 Z"/>
+                  </svg>
+                </span>
+              </button>
+            </div>
+          </div>
 
-          <div class="moon-rabbit" id="moonRabbit" aria-hidden="true">
-            <svg viewBox="0 0 150 170" role="presentation">
-              <ellipse cx="78" cy="118" rx="42" ry="31" />
-              <circle cx="56" cy="87" r="25" />
-              <ellipse cx="42" cy="44" rx="11" ry="35" transform="rotate(-15 42 44)" />
-              <ellipse cx="65" cy="42" rx="10" ry="34" transform="rotate(8 65 42)" />
-              <circle cx="118" cy="105" r="13" />
-              <circle class="rabbit-eye" cx="48" cy="82" r="3.5" />
-            </svg>
+          <div class="intro-copy">
+            <p class="eyebrow" id="eyebrow">MID-AUTUMN · A WORD FOR YOU</p>
+            <h1 id="pageTitle">神給你的一句話</h1>
+            <div class="initial-action">
+              <button class="primary-cta" id="drawBtn" type="button" disabled><span>抽一句話</span><b aria-hidden="true">→</b></button>
+            </div>
           </div>
         </div>
 
-        <div class="intro-copy">
-          <p class="eyebrow" id="eyebrow">MID-AUTUMN · MOONLIGHT MESSAGE</p>
-          <h1 id="pageTitle">月下抽箴言</h1>
-          <p class="lead">今晚，抽一句給你的話。</p>
-
-          <button class="primary-cta" id="drawBtn" type="button" disabled>
-            <span>抽一張箴言</span>
-            <b aria-hidden="true">→</b>
-          </button>
-          <p class="microcopy">抽完可以下載成專屬小卡</p>
-
-          <div class="status-line" role="status" aria-live="polite">
-            <span class="status-dot" aria-hidden="true"></span>
-            <span id="statusText">正在準備箴言…</span>
-          </div>
+        <div class="load-state" id="loadState">
+          <p id="statusText" role="status" aria-live="polite">正在準備…</p>
+          <button class="text-button" id="retryBtn" type="button" hidden>重新載入</button>
         </div>
 
         <section class="result-panel" id="resultPanel" aria-labelledby="resultTitle" hidden>
-          <div class="result-heading">
-            <p>YOUR MOONLIGHT MESSAGE</p>
-            <h2 id="resultTitle">今晚給你的話</h2>
-          </div>
-
+          <h2 id="resultTitle" class="sr-only" tabindex="-1">今晚 神給你的話</h2>
           <div class="result-stage">
-            <canvas id="proverbCanvas" width="1080" height="1350" aria-label="抽到的箴言小卡預覽"></canvas>
+            <canvas id="proverbCanvas" width="1080" height="1350" role="img" aria-label="祝福小卡"></canvas>
           </div>
-
-          <p class="sr-only" id="resultAnnounce" aria-live="polite"></p>
-
-          <div class="result-actions" id="resultActions">
-            <button class="action primary" id="downloadBtn" type="button">下載小卡 PNG</button>
+          <div class="result-actions">
+            <button class="action primary" id="downloadBtn" type="button" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></svg><span>下載小卡</span></button>
             <div class="secondary-actions">
-              <button class="action" id="shareBtn" type="button">分享</button>
+              <button class="action" id="shareBtn" type="button" disabled>分享</button>
               <button class="action" id="copyBtn" type="button">複製文字</button>
-              <button class="action quiet" id="drawAgainBtn" type="button">再抽一句 ↻</button>
+              <button class="action again" id="drawAgainBtn" type="button">再抽一句 <span aria-hidden="true">↻</span></button>
             </div>
           </div>
         </section>
+        <noscript><p>請開啟瀏覽器的 JavaScript 以使用抽取功能。</p></noscript>
       </section>
-
-      <details class="about-details">
-        <summary>關於月下箴言 <span aria-hidden="true">＋</span></summary>
-        <div class="about-content">
-          <p>每次都是隨機抽取，之後仍可能再次抽到同一句。小卡會直接在你的瀏覽器產生，不需要上傳個人資料。</p>
-          <p class="data-version" id="dataVersion">箴言資料載入中</p>
-        </div>
-      </details>
     </main>
 
-    <footer class="site-footer">
-      <span>馬力全開 · 中秋佳節</span>
-      <a id="bottomBackLink" href="https://midautumn-bbq-night.twt249.chatgpt.site/" target="_top" rel="noopener">回活動行前通知 →</a>
-    </footer>
+    <footer class="site-footer"><span id="eventLine">2026.09.19 · 新店文山農場</span></footer>
   </div>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+  <div class="toast" id="toast" hidden><span id="toastText" role="status" aria-live="polite"></span><button id="toastAction" type="button" hidden>開啟圖片</button></div>
+  <dialog id="imageDialog" class="image-dialog" aria-labelledby="imageDialogTitle">
+    <div class="dialog-top"><h2 id="imageDialogTitle">保存這份祝福</h2><button id="closeImageBtn" type="button" aria-label="關閉圖片">×</button></div>
+    <img id="saveImage" alt="祝福小卡" width="1080" height="1350">
+    <p>長按圖片，即可儲存或分享。</p>
+  </dialog>
 </body>
 </html>

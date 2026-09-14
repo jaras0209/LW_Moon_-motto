@@ -3,450 +3,402 @@
 
   const cfg = window.PROVERB_APP_CONFIG || {};
   const $ = (selector) => document.querySelector(selector);
-
   const canvas = $('#proverbCanvas');
   const ctx = canvas.getContext('2d');
-  const drawBtn = $('#drawBtn');
-  const moonButton = $('#moonButton');
-  const moonScene = $('#moonScene');
-  const moonRabbit = $('#moonRabbit');
-  const resultPanel = $('#resultPanel');
-  const resultAnnounce = $('#resultAnnounce');
-  const statusText = $('#statusText');
-  const toast = $('#toast');
+  const title = String(cfg.pageTitle || '神給你的一句話');
+  const cardTitle = String(cfg.cardTitle || '今晚 神給你的話');
+  const serif = '"Noto Serif TC","Noto Serif CJK TC","PingFang TC","Microsoft JhengHei",serif';
+  const sans = '"Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif';
+  const rabbitColor = cfg.rabbitTone === 'white' ? '#ffffff' : '#000000';
+  const rabbitPath = new Path2D($('#rabbitShape').getAttribute('d'));
+  const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+  const variants = ['rabbit-peek-left', 'rabbit-peek-right', 'rabbit-jump'];
 
   let proverbs = [];
-  let meta = {};
   let selected = null;
+  let renderVersion = 0;
+  let imageUrl = '';
+  let cachedFile = null;
+  let fileName = '';
+  let revealTimer;
+  let toastTimer;
+  let toastCallback = null;
+  let sharing = false;
 
-  const urlParams = new URLSearchParams(location.search);
-  if (urlParams.get('embed') === '1') document.body.classList.add('embed');
+  document.body.dataset.rabbitTone = cfg.rabbitTone === 'white' ? 'white' : 'black';
+  if (new URLSearchParams(location.search).get('embed') === '1') document.body.classList.add('embed');
+  $('#pageTitle').textContent = title;
+  $('#resultTitle').textContent = cardTitle;
+  $('#eyebrow').textContent = cfg.eyebrow || 'MID-AUTUMN · A WORD FOR YOU';
+  $('#eventLine').textContent = cfg.eventLine || '2026.09.19 · 新店文山農場';
+  document.title = `${title}｜${cfg.brand || '馬力全開中秋佳節'}`;
 
-  $('#backLink').href = cfg.parentSiteUrl || '#';
-  $('#bottomBackLink').href = cfg.parentSiteUrl || '#';
-  if (cfg.eyebrow) $('#eyebrow').textContent = cfg.eyebrow;
-  if (cfg.pageTitle) $('#pageTitle').textContent = cfg.pageTitle;
-
-  function showToast(message) {
-    toast.textContent = message;
-    toast.classList.add('show');
-    clearTimeout(showToast.timer);
-    showToast.timer = setTimeout(() => toast.classList.remove('show'), 2200);
+  // Only http(s) URLs may become links. Relative URLs are resolved against this page.
+  if (cfg.parentSiteUrl) {
+    try {
+      const parent = new URL(cfg.parentSiteUrl, document.baseURI);
+      if (/^https?:$/.test(parent.protocol)) {
+        $('#backLink').href = parent.href;
+        $('#topBackLink').href = parent.href;
+      }
+    } catch (error) { console.warn('Invalid parentSiteUrl', error); }
   }
 
-  function normalizeItem(item, index) {
-    if (typeof item === 'string') {
-      return {
-        id: `item-${index + 1}`,
-        text: item.trim(),
-        reference: '',
-        category: '',
-        enabled: true
-      };
-    }
+  function showToast(message, action = null) {
+    clearTimeout(toastTimer);
+    $('#toastText').textContent = message;
+    $('#toastAction').hidden = !action;
+    toastCallback = action;
+    $('#toast').hidden = false;
+    toastTimer = setTimeout(() => { $('#toast').hidden = true; }, action ? 8500 : 3200);
+  }
 
+  // Allow-list public fields. Legacy source/citation fields are never used in the
+  // DOM, canvas, accessible labels, filenames, clipboard, or share payloads.
+  function normalizeItem(item, index) {
+    if (typeof item === 'string') return { id: `p${index + 1}`, text: item.trim(), enabled: true };
+    if (!item || typeof item !== 'object' || typeof item.text !== 'string') return null;
     return {
-      id: String(item.id || `item-${index + 1}`),
-      text: String(item.text || '').trim(),
-      reference: String(item.reference || '').trim(),
-      category: String(item.category || '').trim(),
+      id: typeof item.id === 'string' ? item.id : `p${index + 1}`,
+      text: item.text.trim(),
       enabled: item.enabled !== false
     };
   }
 
   async function loadData() {
-    drawBtn.disabled = true;
-    moonButton.disabled = true;
-
+    $('#drawBtn').disabled = true;
+    $('#moonButton').disabled = true;
+    $('#retryBtn').hidden = true;
+    $('#loadState').hidden = false;
+    $('#statusText').textContent = '正在準備…';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
     try {
-      const url = `${cfg.dataUrl || './data/proverbs.json'}?v=${Date.now()}`;
-      const response = await fetch(url, { cache: 'no-store' });
+      if (!ctx) throw new Error('Canvas 2D unavailable');
+      const url = new URL(cfg.dataUrl || './data/proverbs.json', document.baseURI);
+      url.searchParams.set('v', Date.now().toString());
+      const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
       const data = await response.json();
-      meta = data.meta || {};
-      const source = Array.isArray(data) ? data : data.items;
-      if (!Array.isArray(source)) throw new Error('JSON 必須包含 items 陣列');
-
-      proverbs = source.map(normalizeItem).filter((item) => item.enabled && item.text);
-      if (!proverbs.length) throw new Error('沒有可抽取的箴言');
-
-      statusText.textContent = '準備好了，點一下就開始。';
-      $('#dataVersion').textContent = `目前共有 ${proverbs.length} 則箴言${meta.updatedAt ? ` · 更新 ${meta.updatedAt}` : ''}`;
-      drawBtn.disabled = false;
-      moonButton.disabled = false;
+      const source = Array.isArray(data) ? data : data?.items;
+      if (!Array.isArray(source)) throw new Error('Expected an items array');
+      proverbs = source.map(normalizeItem).filter((item) => item && item.enabled && item.text);
+      if (!proverbs.length) throw new Error('No enabled messages');
+      $('#drawBtn').disabled = false;
+      $('#moonButton').disabled = false;
+      $('#loadState').hidden = true;
     } catch (error) {
-      console.error(error);
-      statusText.textContent = '箴言資料載入失敗，請稍後再試。';
-      $('#dataVersion').textContent = '箴言資料載入失敗';
-      showToast('無法載入箴言資料');
-    }
+      console.error('Message data unavailable', error);
+      $('#statusText').textContent = '暫時無法載入，請再試一次。';
+      $('#retryBtn').hidden = false;
+    } finally { clearTimeout(timeout); }
   }
 
   function pickRandom() {
-    // 有放回抽樣：每次都從完整箴言池重新抽取，因此同一句之後可以再次出現。
-    // 預設只避免連續兩次完全相同；config.js 設為 false 即可允許立即重複。
     let pool = proverbs;
-    const avoidImmediateRepeat = cfg.avoidImmediateRepeat !== false;
-
-    if (avoidImmediateRepeat && proverbs.length > 1 && selected?.id) {
-      pool = proverbs.filter((item) => item.id !== selected.id);
+    if (cfg.avoidImmediateRepeat !== false && selected && proverbs.length > 1) {
+      const alternatives = proverbs.filter((item) => item.text !== selected.text);
+      if (alternatives.length) pool = alternatives;
     }
-
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  function triggerRevealAnimation() {
-    const variants = ['rabbit-peek-left', 'rabbit-peek-right', 'rabbit-jump'];
-    const variant = variants[Math.floor(Math.random() * variants.length)];
-
-    moonScene.classList.remove('is-revealing');
-    moonRabbit.classList.remove('show', ...variants);
-    resultPanel.classList.remove('is-fresh');
-
-    // 重新觸發 CSS animation。
-    void moonScene.offsetWidth;
-
-    moonScene.classList.add('is-revealing');
-    moonRabbit.classList.add('show', variant);
-    resultPanel.classList.add('is-fresh');
-
-    clearTimeout(triggerRevealAnimation.timer);
-    triggerRevealAnimation.timer = setTimeout(() => {
-      moonScene.classList.remove('is-revealing');
-    }, 900);
+  function animateReveal() {
+    clearTimeout(revealTimer);
+    const scene = $('#moonScene');
+    const rabbit = $('#moonRabbit');
+    scene.classList.remove('is-revealing');
+    rabbit.classList.remove('show', ...variants);
+    $('#resultPanel').classList.remove('is-fresh');
+    void scene.offsetWidth;
+    rabbit.classList.add('show');
+    if (!motionQuery.matches) {
+      scene.classList.add('is-revealing');
+      rabbit.classList.add(variants[Math.floor(Math.random() * variants.length)]);
+      $('#resultPanel').classList.add('is-fresh');
+      revealTimer = setTimeout(() => scene.classList.remove('is-revealing'), 750);
+    }
   }
 
-  function roundRect(context, x, y, width, height, radius) {
+  function roundRect(x, y, width, height, radius) {
     const r = Math.min(radius, width / 2, height / 2);
-    context.beginPath();
-    context.moveTo(x + r, y);
-    context.arcTo(x + width, y, x + width, y + height, r);
-    context.arcTo(x + width, y + height, x, y + height, r);
-    context.arcTo(x, y + height, x, y, r);
-    context.arcTo(x, y, x + width, y, r);
-    context.closePath();
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + width, y, x + width, y + height, r);
+    ctx.arcTo(x + width, y + height, x, y + height, r);
+    ctx.arcTo(x, y + height, x, y, r);
+    ctx.arcTo(x, y, x + width, y, r);
+    ctx.closePath();
   }
 
-  function wrapText(text, maxWidth, fontSize) {
-    ctx.font = `700 ${fontSize}px "Noto Serif TC","PingFang TC","Microsoft JhengHei",serif`;
+  function wrapText(text, maxWidth, fontSize, family = serif, weight = 700) {
+    ctx.font = `${weight} ${fontSize}px ${family}`;
     const lines = [];
-
-    String(text).split(/\n/).forEach((paragraph, paragraphIndex, paragraphs) => {
+    for (const paragraph of String(text).replace(/\r\n?/g, '\n').split('\n')) {
       let line = '';
       for (const char of paragraph) {
-        const test = line + char;
-        if (line && ctx.measureText(test).width > maxWidth) {
-          lines.push(line);
-          line = char;
-        } else {
-          line = test;
-        }
+        if (line && ctx.measureText(line + char).width > maxWidth) {
+          // Avoid starting a Chinese line with a closing punctuation mark.
+          if ('，。！？；：、」』）】》'.includes(char) && Array.from(line).length > 1) {
+            const characters = Array.from(line);
+            const last = characters.pop();
+            lines.push(characters.join(''));
+            line = last + char;
+          } else {
+            lines.push(line);
+            line = char;
+          }
+        } else { line += char; }
       }
-      if (line) lines.push(line);
-      if (paragraphIndex < paragraphs.length - 1) lines.push('');
-    });
-
+      lines.push(line);
+    }
     return lines;
   }
 
   function fitText(text, maxWidth, maxHeight) {
-    for (let size = 62; size >= 30; size -= 2) {
+    // Fit the complete text, never silently truncate. Very long texts get smaller.
+    for (let size = 64; size >= 8; size -= 1) {
       const lines = wrapText(text, maxWidth, size);
-      const lineHeight = size * 1.55;
+      const lineHeight = size * 1.62;
       if (lines.length * lineHeight <= maxHeight) return { size, lines, lineHeight };
     }
-
-    const size = 28;
-    return {
-      size,
-      lines: wrapText(text, maxWidth, size),
-      lineHeight: size * 1.5
-    };
+    throw new Error('Message too long for a readable card');
   }
 
-  function seedFrom(text) {
-    let hash = 2166136261;
-    for (let i = 0; i < text.length; i += 1) {
-      hash ^= text.charCodeAt(i);
-      hash = Math.imul(hash, 16777619);
+  function fitSingleLine(text, size, maxWidth, family = sans, weight = 500) {
+    while (size > 10) {
+      ctx.font = `${weight} ${size}px ${family}`;
+      if (ctx.measureText(text).width <= maxWidth) break;
+      size -= 1;
     }
-    return hash >>> 0;
   }
 
-  function rng(seed) {
-    let value = seed || 1;
+  function randomFor(text) {
+    let seed = 2166136261;
+    for (const char of text) { seed ^= char.codePointAt(0); seed = Math.imul(seed, 16777619); }
     return () => {
-      value |= 0;
-      value = value + 0x6D2B79F5 | 0;
-      let t = Math.imul(value ^ value >>> 15, 1 | value);
-      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t ^= t + Math.imul(t ^ t >>> 7, 61 | t);
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     };
   }
 
-  function drawRabbitSilhouette(context) {
-    context.save();
-    context.translate(776, 302);
-    context.fillStyle = 'rgba(76, 54, 29, .23)';
+  function drawCard(item) {
+    const random = randomFor(item.text);
+    ctx.clearRect(0, 0, 1080, 1350);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#F3E6D0';
+    ctx.fillRect(0, 0, 1080, 1350);
+    ctx.fillStyle = 'rgba(112,81,39,.1)';
+    for (let i = 0; i < 600; i += 1) ctx.fillRect(random() * 1080, random() * 1350, 1.4, 1.4);
 
-    context.beginPath();
-    context.ellipse(15, 28, 41, 28, -.08, 0, Math.PI * 2);
-    context.fill();
+    ctx.fillStyle = '#24473B';
+    roundRect(48, 48, 984, 1254, 12); ctx.fill();
+    ctx.strokeStyle = '#C4A361'; ctx.lineWidth = 1.5;
+    roundRect(72, 72, 936, 1206, 8); ctx.stroke();
 
-    context.beginPath();
-    context.arc(-20, 3, 24, 0, Math.PI * 2);
-    context.fill();
+    const glow = ctx.createRadialGradient(782, 256, 40, 782, 256, 220);
+    glow.addColorStop(0, 'rgba(239,211,142,.25)');
+    glow.addColorStop(1, 'rgba(239,211,142,0)');
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(782, 256, 220, 0, Math.PI * 2); ctx.fill();
+    const moon = ctx.createRadialGradient(733, 214, 14, 782, 256, 132);
+    moon.addColorStop(0, '#FFF6D2'); moon.addColorStop(.5, '#F0DEAC'); moon.addColorStop(1, '#CEA85E');
+    ctx.fillStyle = moon; ctx.beginPath(); ctx.arc(782, 256, 132, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(90,67,20,.065)';
+    [[736, 225, 24], [828, 224, 13], [807, 313, 30]].forEach(([x,y,r]) => {
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    });
+    ctx.save();
+    ctx.translate(708, 206); ctx.scale(.84, .84);
+    ctx.globalAlpha = 1; ctx.fillStyle = rabbitColor; ctx.fill(rabbitPath);
+    ctx.restore();
 
-    context.save();
-    context.rotate(-.2);
-    context.beginPath();
-    context.ellipse(-31, -34, 9, 33, 0, 0, Math.PI * 2);
-    context.fill();
-    context.restore();
+    ctx.fillStyle = '#D6BD81';
+    for (let i = 0; i < 25; i += 1) {
+      const x = 126 + random() * 804, y = 225 + random() * 164;
+      if ((x - 782) ** 2 + (y - 256) ** 2 < 154 ** 2) continue;
+      ctx.globalAlpha = .25 + random() * .4;
+      ctx.beginPath(); ctx.arc(x, y, 1.2 + random() * 1.3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#EFDEB6';
+    const brand = String(cfg.brand || '馬力全開 · 中秋佳節');
+    fitSingleLine(brand, 24, 492, sans, 700); ctx.fillText(brand, 120, 145);
+    const eventLine = String(cfg.eventLine || '2026.09.19 · 新店文山農場');
+    ctx.fillStyle = '#C1C5AF'; fitSingleLine(eventLine, 18, 492); ctx.fillText(eventLine, 120, 180);
 
-    context.save();
-    context.rotate(.12);
-    context.beginPath();
-    context.ellipse(-10, -36, 8, 31, 0, 0, Math.PI * 2);
-    context.fill();
-    context.restore();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#D7BD83'; ctx.font = `500 17px ${sans}`;
+    ctx.fillText('A WORD FOR YOU', 540, 420);
+    ctx.fillStyle = '#793139'; roundRect(361, 444, 358, 58, 29); ctx.fill();
+    ctx.fillStyle = '#FFF6E0'; fitSingleLine(cardTitle, 32, 320, serif, 600);
+    ctx.fillText(cardTitle, 540, 482);
 
-    context.beginPath();
-    context.arc(55, 18, 12, 0, Math.PI * 2);
-    context.fill();
-    context.restore();
+    const fitted = fitText(item.text, 760, 464);
+    ctx.fillStyle = '#FFF8E8'; ctx.font = `700 ${fitted.size}px ${serif}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    let y = 780 - ((fitted.lines.length - 1) * fitted.lineHeight) / 2;
+    for (const line of fitted.lines) { ctx.fillText(line, 540, y); y += fitted.lineHeight; }
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#D9BC7E'; ctx.font = `600 64px ${serif}`;
+    ctx.textAlign = 'left'; ctx.fillText('「', 112, 582);
+    ctx.textAlign = 'right'; ctx.fillText('」', 968, 1043);
+
+    ctx.save();
+    roundRect(48, 48, 984, 1254, 12); ctx.clip();
+    ctx.fillStyle = '#1B392F';
+    ctx.beginPath(); ctx.moveTo(48, 1146);
+    ctx.quadraticCurveTo(217, 1070, 378, 1140);
+    ctx.quadraticCurveTo(590, 1044, 764, 1137);
+    ctx.quadraticCurveTo(922, 1080, 1032, 1132);
+    ctx.lineTo(1032,1302); ctx.lineTo(48,1302); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#EDDDB6'; ctx.textAlign = 'center';
+    const footer = String(cfg.cardFooter || '願你帶著喜樂而來，也帶著祝福回家');
+    fitSingleLine(footer, 27, 820, serif, 500); ctx.fillText(footer, 540, 1199);
+    ctx.fillStyle = '#A9B49C'; ctx.font = `500 15px ${sans}`;
+    ctx.fillText('MID-AUTUMN · BLESSINGS TO KEEP', 540, 1240);
+    ctx.restore();
   }
 
-  function drawCard(item) {
-    const width = canvas.width;
-    const height = canvas.height;
-    const random = rng(seedFrom(item.id + item.text));
-    ctx.clearRect(0, 0, width, height);
+  function prepareImage(version) {
+    cachedFile = null;
+    $('#downloadBtn').disabled = true;
+    $('#shareBtn').disabled = true;
+    canvas.toBlob((blob) => {
+      if (version !== renderVersion) return; // Ignore obsolete results after rapid redraws.
+      if (!blob) { showToast('圖片產生失敗，請再試一次'); return; }
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+      imageUrl = URL.createObjectURL(blob);
+      cachedFile = new File([blob], fileName, { type: 'image/png' });
+      $('#downloadBtn').disabled = false;
+      $('#shareBtn').disabled = false;
+    }, 'image/png');
+  }
 
-    const paper = ctx.createLinearGradient(0, 0, 0, height);
-    paper.addColorStop(0, '#F6EEDC');
-    paper.addColorStop(.64, '#F0E0C6');
-    paper.addColorStop(1, '#E8D0AE');
-    ctx.fillStyle = paper;
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.globalAlpha = .08;
-    ctx.fillStyle = '#5A412A';
-    for (let i = 0; i < 750; i += 1) {
-      ctx.fillRect(random() * width, random() * height, 1.2, 1.2);
-    }
-    ctx.globalAlpha = 1;
-
-    ctx.fillStyle = '#24463A';
-    roundRect(ctx, 54, 54, width - 108, 1238, 14);
-    ctx.fill();
-
-    ctx.strokeStyle = '#C99B4D';
-    ctx.lineWidth = 2;
-    roundRect(ctx, 76, 76, width - 152, 1194, 10);
-    ctx.stroke();
-
-    const glow = ctx.createRadialGradient(780, 260, 10, 780, 260, 240);
-    glow.addColorStop(0, 'rgba(238,213,152,.34)');
-    glow.addColorStop(1, 'rgba(238,213,152,0)');
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(780, 260, 240, 0, Math.PI * 2);
-    ctx.fill();
-
-    const moon = ctx.createRadialGradient(735, 220, 20, 780, 260, 145);
-    moon.addColorStop(0, '#FFF3C4');
-    moon.addColorStop(.55, '#E8CF91');
-    moon.addColorStop(1, '#C99B4D');
-    ctx.fillStyle = moon;
-    ctx.beginPath();
-    ctx.arc(780, 260, 132, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.globalAlpha = .12;
-    ctx.fillStyle = '#70502D';
-    [[730, 215, 24], [825, 205, 18], [812, 315, 31], [710, 290, 13]].forEach(([x, y, radius]) => {
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.globalAlpha = 1;
-    drawRabbitSilhouette(ctx);
-
-    ctx.fillStyle = '#E2C985';
-    for (let i = 0; i < 34; i += 1) {
-      const x = 110 + random() * 760;
-      const y = 115 + random() * 365;
-      ctx.globalAlpha = .35 + random() * .55;
-      ctx.beginPath();
-      ctx.arc(x, y, 1 + random() * 2.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
-    const serif = '"Noto Serif TC","PingFang TC","Microsoft JhengHei",serif';
-    const sans = '"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif';
-
-    ctx.fillStyle = '#E9D39B';
-    ctx.textAlign = 'left';
-    ctx.font = `800 24px ${sans}`;
-    ctx.fillText(cfg.brand || '馬力全開 · 中秋佳節', 120, 140);
-
-    ctx.fillStyle = 'rgba(244,236,215,.72)';
-    ctx.font = `600 17px ${sans}`;
-    ctx.fillText(cfg.eventLine || '2026.09.19 · 新店文山農場', 120, 176);
-
-    ctx.fillStyle = '#7B2D34';
-    roundRect(ctx, 118, 428, 220, 48, 24);
-    ctx.fill();
-    ctx.fillStyle = '#FFF2D0';
-    ctx.font = `800 18px ${sans}`;
-    ctx.textAlign = 'center';
-    ctx.fillText('今晚給你的話', 228, 460);
-
-    const fitted = fitText(item.text, 740, 470);
-    ctx.fillStyle = '#FFF8E8';
-    ctx.font = `700 ${fitted.size}px ${serif}`;
-    ctx.textAlign = 'center';
-    let y = 740 - (fitted.lines.length * fitted.lineHeight) / 2 + fitted.lineHeight * .72;
-    fitted.lines.forEach((line) => {
-      ctx.fillText(line, 540, y);
-      y += fitted.lineHeight;
-    });
-
-    ctx.fillStyle = '#D6B86B';
-    ctx.font = `900 70px ${serif}`;
-    ctx.textAlign = 'left';
-    ctx.fillText('「', 120, 590);
-    ctx.textAlign = 'right';
-    ctx.fillText('」', 960, 990);
-
-    if (item.reference) {
-      ctx.font = `700 24px ${sans}`;
-      const badgeWidth = Math.min(620, ctx.measureText(item.reference).width + 66);
-      ctx.fillStyle = 'rgba(233,211,155,.12)';
-      roundRect(ctx, 540 - badgeWidth / 2, 1010, badgeWidth, 52, 26);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(233,211,155,.42)';
-      ctx.lineWidth = 1.5;
-      roundRect(ctx, 540 - badgeWidth / 2, 1010, badgeWidth, 52, 26);
-      ctx.stroke();
-      ctx.fillStyle = '#E9D39B';
-      ctx.textAlign = 'center';
-      ctx.fillText(item.reference, 540, 1045);
-    }
-
-    ctx.fillStyle = '#17352E';
-    ctx.beginPath();
-    ctx.moveTo(54, 1195);
-    ctx.lineTo(54, 1115);
-    ctx.quadraticCurveTo(240, 1050, 390, 1142);
-    ctx.quadraticCurveTo(580, 1025, 745, 1138);
-    ctx.quadraticCurveTo(900, 1060, 1026, 1110);
-    ctx.lineTo(1026, 1292);
-    ctx.lineTo(54, 1292);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = '#C99B4D';
-    ctx.beginPath();
-    ctx.arc(850, 1165, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(890, 1132, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#F1DEAE';
-    ctx.font = `700 20px ${serif}`;
-    ctx.fillText(cfg.cardFooter || '願你帶著喜樂而來，也帶著祝福回家', 540, 1199);
-
-    ctx.fillStyle = 'rgba(236,227,203,.62)';
-    ctx.font = `500 15px ${sans}`;
-    ctx.fillText('MOONLIGHT MESSAGE · MID-AUTUMN', 540, 1235);
+  function makeFileName() {
+    // No IDs or source fields in filenames, including legacy IDs containing citations.
+    const d = new Date();
+    const pad = (value) => String(value).padStart(2, '0');
+    const stamp = `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    return `神給你的一句話-${stamp}-${renderVersion}.png`;
   }
 
   function draw() {
     if (!proverbs.length) return;
-
-    selected = pickRandom();
-    drawCard(selected);
-    resultPanel.hidden = false;
+    const item = pickRandom();
+    try { drawCard(item); }
+    catch (error) {
+      console.error('Card render failed', error);
+      showToast('這段內容無法產生小卡，請重新抽取');
+      if (selected) drawCard(selected);
+      return;
+    }
+    selected = item;
+    renderVersion += 1;
+    fileName = makeFileName();
+    $('#toast').hidden = true;
+    $('#resultPanel').hidden = false;
     document.body.classList.add('has-result');
-    triggerRevealAnimation();
+    canvas.setAttribute('aria-label', `${cardTitle}：${item.text}`);
+    $('#moonButton').setAttribute('aria-label', '再抽一句');
+    $('#resultTitle').focus({ preventScroll: true });
+    animateReveal();
+    prepareImage(renderVersion);
+    // No scroll timer or animation-gated waiting: the result is immediately usable.
+  }
 
-    const reference = selected.reference ? ` — ${selected.reference}` : '';
-    resultAnnounce.textContent = `你抽到：${selected.text}${reference}`;
-    statusText.textContent = selected.reference ? `抽到了 ${selected.reference}` : '今晚的一句話已經出現。';
-    drawBtn.querySelector('span').textContent = '再抽一句';
-    drawBtn.querySelector('b').textContent = '↻';
-
-    if (window.matchMedia('(max-width: 700px)').matches) {
-      setTimeout(() => resultPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }), 420);
+  function openImage() {
+    if (!imageUrl || !selected) return;
+    const dialog = $('#imageDialog');
+    $('#saveImage').src = imageUrl;
+    $('#saveImage').alt = `${cardTitle}：${selected.text}`;
+    $('#toast').hidden = true;
+    if (typeof dialog.showModal === 'function') {
+      if (!dialog.open) dialog.showModal();
+    } else {
+      const a = document.createElement('a');
+      a.href = imageUrl; a.target = '_blank'; a.rel = 'noopener'; a.click();
     }
   }
 
-  function toBlob() {
-    return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('PNG 產生失敗')), 'image/png');
-    });
-  }
-
-  function safeName(text) {
-    return text.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/-+/g, '-').slice(0, 38) || 'proverb';
-  }
-
-  async function download() {
-    if (!selected) return;
-    const blob = await toBlob();
-    const anchor = document.createElement('a');
-    anchor.href = URL.createObjectURL(blob);
-    anchor.download = `月下箴言-${safeName(selected.reference || selected.id)}.png`;
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(anchor.href), 1200);
-    showToast('小卡已準備下載');
+  function download() {
+    if (!cachedFile || !imageUrl) return;
+    try {
+      const a = document.createElement('a');
+      a.href = imageUrl; a.download = fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      showToast('小卡已準備下載', openImage);
+    } catch { openImage(); }
   }
 
   async function share() {
-    if (!selected) return;
-
-    try {
-      const blob = await toBlob();
-      const file = new File([blob], '月下箴言.png', { type: 'image/png' });
-      const text = `${selected.text}${selected.reference ? `\n— ${selected.reference}` : ''}`;
-
-      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
-        await navigator.share({ title: '月下箴言', text, files: [file] });
-      } else if (navigator.share) {
-        await navigator.share({ title: '月下箴言', text });
-      } else {
-        await navigator.clipboard.writeText(text);
-        showToast('此瀏覽器不支援分享，箴言文字已複製');
-      }
-    } catch (error) {
-      if (error.name !== 'AbortError') showToast('分享沒有完成，可以改用下載小卡');
+    if (!selected || !cachedFile || sharing) return;
+    if (typeof navigator.share !== 'function') {
+      showToast('此瀏覽器不支援分享，可先保存圖片', openImage);
+      return;
     }
+    sharing = true;
+    try {
+      // PNG is pre-generated, preserving transient user activation on this click.
+      const files = [cachedFile];
+      const payload = { title, text: selected.text };
+      if (typeof navigator.canShare === 'function' && navigator.canShare({ files })) payload.files = files;
+      await navigator.share(payload);
+    } catch (error) {
+      if (error.name !== 'AbortError') showToast('分享未完成，可先保存圖片', openImage);
+    } finally { sharing = false; }
   }
 
   async function copyText() {
     if (!selected) return;
-    const text = `${selected.text}${selected.reference ? `\n— ${selected.reference}` : ''}`;
-
     try {
-      await navigator.clipboard.writeText(text);
-      showToast('箴言文字已複製');
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(selected.text);
+      showToast('文字已複製');
     } catch {
-      showToast('無法自動複製，請改用下載或分享');
+      // Compatibility fallback for restricted embedded contexts, with no extra
+      // permanent interface. Never put the content in innerHTML.
+      const field = document.createElement('textarea');
+      const previousFocus = document.activeElement;
+      field.value = selected.text; field.readOnly = true;
+      field.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;';
+      document.body.appendChild(field); field.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { /* fall through */ }
+      field.remove(); previousFocus?.focus({ preventScroll: true });
+      showToast(copied ? '文字已複製' : '無法複製，請改用下載或分享');
     }
   }
 
-  drawBtn.addEventListener('click', draw);
-  moonButton.addEventListener('click', draw);
+  $('#drawBtn').addEventListener('click', draw);
+  $('#moonButton').addEventListener('click', draw);
   $('#drawAgainBtn').addEventListener('click', draw);
   $('#downloadBtn').addEventListener('click', download);
   $('#shareBtn').addEventListener('click', share);
   $('#copyBtn').addEventListener('click', copyText);
+  $('#retryBtn').addEventListener('click', loadData);
+  $('#toastAction').addEventListener('click', () => toastCallback?.());
+  $('#closeImageBtn').addEventListener('click', () => $('#imageDialog').close());
+  $('#imageDialog').addEventListener('close', () => $('#downloadBtn').focus({ preventScroll: true }));
+  $('#imageDialog').addEventListener('click', (event) => {
+    if (event.target !== $('#imageDialog')) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) event.currentTarget.close();
+  });
+  document.addEventListener('visibilitychange', () => {
+    document.querySelectorAll('.moon-orbit, .moon-glow, .stars i').forEach((el) => {
+      el.style.animationPlayState = document.hidden ? 'paused' : 'running';
+    });
+  });
 
+  // Re-render the same selection when optional web fonts finish loading.
+  document.fonts?.ready.then(() => {
+    if (selected) {
+      try { drawCard(selected); prepareImage(renderVersion); }
+      catch (error) { console.warn('Font refresh skipped', error); }
+    }
+  });
   loadData();
 })();

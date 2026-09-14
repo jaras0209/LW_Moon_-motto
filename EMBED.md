@@ -3,10 +3,10 @@
 ## 推薦網址
 
 正式頁：
-`https://你的帳號.github.io/midautumn-proverbs/`
+`https://jaras0209.github.io/LW_Moon_-motto/`
 
 嵌入模式：
-`https://你的帳號.github.io/midautumn-proverbs/?embed=1`
+`https://jaras0209.github.io/LW_Moon_-motto/?embed=1`
 
 `?embed=1` 會隱藏本站自己的上方導覽、頁尾與「回活動首頁」區塊，放進其他網站時比較乾淨。
 
@@ -15,7 +15,7 @@
 ```html
 <section style="width:min(1120px, 100%); margin:auto;">
   <iframe
-    src="https://你的帳號.github.io/midautumn-proverbs/?embed=1"
+    src="https://jaras0209.github.io/LW_Moon_-motto/?embed=1"
     title="月下抽箴言"
     loading="lazy"
     allow="web-share"

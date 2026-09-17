@@ -1,5 +1,6 @@
-/* Golden Moon centered reference edition (2026-09-16).
+/* Golden Moon clean centered edition (2026-09-17).
  * Same approved illustration + live, ink-centered text; never a baked quote.
+ * No inter-line ornaments. Preserve the existing baseline pitch and text area.
  * No libraries, remote render services, or bundled font files are required.
  */
 (() => {
@@ -111,9 +112,12 @@
       for (let size = max; size >= min; size--) {
         context.font = `600 ${size}px ${SERIF}`;
         const lines = phrases.flatMap((phrase) => wrapBalanced(context, phrase, width));
-        const dividers = options.showDividers !== false && lines.length > 1 && lines.length <= 8 && size >= 38;
-        // Reference proportions: a 72px message has approx. 113px line pitch.
-        const lineHeight = size * (dividers ? 1.57 : 1.48);
+        // Keep the exact pitch used by the preceding release, independently of
+        // decoration. In particular, removing rules must NOT change 1.57 to
+        // 1.48 and pull the lines closer together. An older showDividers=false
+        // config keeps its existing compact pitch, but never paints dividers.
+        const legacyLoosePitch = options.showDividers !== false && lines.length > 1 && lines.length <= 8 && size >= 38;
+        const lineHeight = size * (legacyLoosePitch ? 1.57 : 1.48);
         const metrics = lines.map((text, index) => {
           const m = context.measureText(text);
           const finite = (value, fallback) => Number.isFinite(value) ? value : fallback;
@@ -143,7 +147,7 @@
           lines, rows, size, lineHeight, start, width, top, bottom, height,
           centerX: DESIGN.centerX, centerY: DESIGN.centerY, align: 'center',
           ascent: Math.max(...metrics.map((m) => m.ascent)),
-          descent: Math.max(...metrics.map((m) => m.descent)), dividers
+          descent: Math.max(...metrics.map((m) => m.descent)), dividers: false
         };
       }
     } finally { context.restore(); }
@@ -235,10 +239,7 @@
       context.fillStyle='#ded7b7';
       const event=String(config.eventLine || '2026.09.19 \u00b7 \u65b0\u5e97\u6587\u5c71\u8fb2\u5834');
       single(context,event,22,475,SERIF,500);context.fillText(event,80,150);
-      context.textAlign='center';context.fillStyle='#e2c477';context.font=`600 22px Georgia,${SERIF}`;
-      context.fillText('A WORD FOR YOU',540,355);
-      context.strokeStyle='#ddbd72';context.lineWidth=1.4;
-      context.beginPath();context.moveTo(338,349);context.lineTo(406,349);context.moveTo(674,349);context.lineTo(742,349);context.stroke();
+      context.textAlign='center';
       const red=context.createLinearGradient(0,380,0,446);red.addColorStop(0,'#803039');red.addColorStop(1,'#65252e');
       rounded(context,321,380,438,68,34);context.fillStyle=red;context.fill();
       context.strokeStyle='#e2bd6d';context.lineWidth=1.8;context.stroke();
@@ -249,29 +250,30 @@
       context.font=`600 ${fitted.size}px ${SERIF}`;
       context.fillStyle='#fff8e6';context.direction='ltr';
       context.textAlign='center';context.textBaseline='alphabetic';
-      fitted.rows.forEach((row,index)=>{
+      // Body rows keep their measured ink centers and their original baselines.
+      // No rules, diamonds, dots, or other ornaments are painted in the gaps.
+      for (const row of fitted.rows) {
         context.fillText(row.text,row.x,row.y);
-        if (fitted.dividers && index<fitted.rows.length-1) {
-          const next=fitted.rows[index+1];
-          const ruleY=(row.bottom+next.top)/2;
-          const centerX=fitted.centerX;
-          const span=Math.min(444,fitted.width*.57);
-          const gold=context.createLinearGradient(centerX-span/2,0,centerX+span/2,0);
-          gold.addColorStop(0,'#d5b36c00');gold.addColorStop(.20,'#d5b36cbb');
-          gold.addColorStop(.5,'#e9c777');gold.addColorStop(.80,'#d5b36cbb');
-          gold.addColorStop(1,'#d5b36c00');
-          context.strokeStyle=gold;context.lineWidth=1.4;context.beginPath();
-          context.moveTo(centerX-span/2,ruleY);context.lineTo(centerX-16,ruleY);
-          context.moveTo(centerX+16,ruleY);context.lineTo(centerX+span/2,ruleY);context.stroke();
-          context.fillStyle='#e4bf72';diamond(context,centerX,ruleY,9);
-          context.fillStyle='#fff8e6';
-        }
-      });
-      // Deliberately no footer sentence, citation, reference, category or ID.
+      }
+
+      // The English caption lives below the reading area, inside the gold frame.
+      // It does not consume any body space or change the established line pitch.
+      context.save();
+      context.font=`600 22px Georgia,${SERIF}`;
+      context.fillStyle='#ecd59a';
+      context.shadowColor='rgba(3, 28, 22, 0.85)';
+      context.shadowBlur=4;
+      const caption='A WORD FOR YOU';
+      const captionMetrics=context.measureText(caption);
+      const captionLeft=Number.isFinite(captionMetrics.actualBoundingBoxLeft) ? captionMetrics.actualBoundingBoxLeft : captionMetrics.width/2;
+      const captionRight=Number.isFinite(captionMetrics.actualBoundingBoxRight) ? captionMetrics.actualBoundingBoxRight : captionMetrics.width/2;
+      context.fillText(caption,DESIGN.centerX+(captionLeft-captionRight)/2,1300);
+      context.restore();
+      // No blessing sentence, citation, reference, category, ID, or guide line.
       context.restore();
       return fitted;
     }
     return {ready,render};
   }
-  window.MoonCardRenderer=Object.freeze({create,layout,wrapBalanced,design:DESIGN,version:'centered-reference-2'});
+  window.MoonCardRenderer=Object.freeze({create,layout,wrapBalanced,design:DESIGN,version:'clean-centered-3'});
 })();

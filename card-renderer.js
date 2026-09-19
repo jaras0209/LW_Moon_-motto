@@ -5,8 +5,8 @@
   'use strict';
   const WIDTH = 1080, HEIGHT = 1350;
   // Prioritise Traditional Chinese fonts with stable CJK punctuation metrics.
-  const SERIF = '"Noto Serif TC","Source Han Serif TC","Noto Serif CJK TC","Songti TC","PMingLiU",serif';
-  const SANS = '"Noto Sans TC","Source Han Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif';
+  const SERIF = '"Source Han Serif TW Web", serif';
+  const SANS = '"Source Han Serif TW Web", serif';
   const CLOSE = new Set(Array.from('\u3001\u3002\uff0c\uff01\uff1f\uff1b\uff1a\u300d\u300f\uff09\u3011\u300b\u2026,.!?;:)]}\u201d\u2019'));
   const OPEN = new Set(Array.from('\u300c\u300e\uff08\u3010\u300a([\u201c\u2018'));
   const squash = (text) => text.replace(/\s+/gu, '');

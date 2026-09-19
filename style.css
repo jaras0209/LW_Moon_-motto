@@ -1,9 +1,22 @@
+@font-face {
+  font-family: "Source Han Serif TW Web";
+  src:
+    local("Source Han Serif TW VF"),
+    local("思源宋體 TW VF"),
+    local("Source Han Serif TC"),
+    local("思源宋體"),
+    url("https://raw.githubusercontent.com/adobe-fonts/source-han-serif/release/Variable/WOFF2/TTF/Subset/SourceHanSerifTW-VF.ttf.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 250 900;
+  font-display: swap;
+}
+
 :root {
   --paper: #f3ead8; --ink: #173b30; --green: #0b3b2d;
   --wine: #762c36; --wine-dark: #5d202b; --gold: #d7b772;
   --muted: #776d5b; --line: #27433225; --rabbit: #000;
-  --serif: "Noto Serif TC","Source Han Serif TC","Noto Serif CJK TC","Songti TC","PMingLiU",serif;
-  --sans: "Noto Sans TC","Source Han Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --serif: "Source Han Serif TW Web", serif;
+  --sans: "Source Han Serif TW Web", serif;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -154,3 +167,6 @@ h1 { margin: 0; color: #fff2cf; font: 600 clamp(28px,5vw,44px)/1.5 var(--serif);
   *,*::before,*::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .moon-rabbit.show { opacity: 1; transform: none; }
 }
+
+/* Unified Traditional Chinese typography: Source Han Serif (Taiwan). */
+html, body, button, input, textarea, select { font-family: var(--serif); }

@@ -65,20 +65,28 @@
   }
 
   async function waitForFonts() {
-    if (!document.fonts?.ready) return;
+    if (!document.fonts?.load) return;
+    const family = '"Source Han Serif TW Web"';
+    const sample = '晚撒割神給你的一句話馬力全開中秋佳節';
+    const probes = [
+      `500 24px ${family}`,
+      `600 72px ${family}`,
+      `700 36px ${family}`
+    ];
+    const timeout = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     try {
       await Promise.race([
-        Promise.all([
-          document.fonts.load('600 72px "Noto Serif TC"'),
-          document.fonts.load('700 36px "Noto Serif TC"'),
-          document.fonts.load('500 24px "Noto Serif TC"'),
-          document.fonts.load('500 20px "Noto Sans TC"')
-        ]),
-        new Promise((resolve) => setTimeout(resolve, 3000))
+        Promise.all(probes.map((font) => document.fonts.load(font, sample))),
+        timeout(10000)
       ]);
-      await Promise.race([document.fonts.ready, new Promise((resolve) => setTimeout(resolve, 3000))]);
+      if (document.fonts.ready) {
+        await Promise.race([document.fonts.ready, timeout(3000)]);
+      }
+      if (!document.fonts.check(`600 72px ${family}`, '晚撒割')) {
+        console.warn('Source Han Serif TW was not confirmed after font loading.');
+      }
     } catch (error) {
-      console.warn('Font loading timed out; using available fonts.', error);
+      console.warn('Source Han Serif TW loading failed.', error);
     }
   }
 

@@ -64,6 +64,24 @@
     };
   }
 
+  async function waitForFonts() {
+    if (!document.fonts?.ready) return;
+    try {
+      await Promise.race([
+        Promise.all([
+          document.fonts.load('600 72px "Noto Serif TC"'),
+          document.fonts.load('700 36px "Noto Serif TC"'),
+          document.fonts.load('500 24px "Noto Serif TC"'),
+          document.fonts.load('500 20px "Noto Sans TC"')
+        ]),
+        new Promise((resolve) => setTimeout(resolve, 3000))
+      ]);
+      await Promise.race([document.fonts.ready, new Promise((resolve) => setTimeout(resolve, 3000))]);
+    } catch (error) {
+      console.warn('Font loading timed out; using available fonts.', error);
+    }
+  }
+
   async function loadData() {
     $('#drawBtn').disabled = true;
     $('#moonButton').disabled = true;
@@ -84,6 +102,7 @@
       proverbs = source.map(normalizeItem).filter((item) => item && item.enabled && item.text);
       if (!proverbs.length) throw new Error('No enabled messages');
       await renderer.ready;
+      await waitForFonts();
       $('#drawBtn').disabled = false;
       $('#moonButton').disabled = false;
       $('#loadState').hidden = true;

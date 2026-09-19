@@ -1,13 +1,12 @@
-/* Golden Moon clean centered edition (2026-09-17).
- * Same approved illustration + live, ink-centered text; never a baked quote.
- * No inter-line ornaments. Preserve the existing baseline pitch and text area.
+/* Golden Moon card renderer. Same-origin artwork + live text, never a baked quote.
  * No libraries, remote render services, or bundled font files are required.
  */
 (() => {
   'use strict';
   const WIDTH = 1080, HEIGHT = 1350;
-  const SERIF = '"Noto Serif TC","Noto Serif CJK TC","Songti TC","PMingLiU",serif';
-  const SANS = '"Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif';
+  // Prioritise Traditional Chinese fonts with stable CJK punctuation metrics.
+  const SERIF = '"Noto Serif TC","Source Han Serif TC","Noto Serif CJK TC","Songti TC","PMingLiU",serif';
+  const SANS = '"Noto Sans TC","Source Han Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif';
   const CLOSE = new Set(Array.from('\u3001\u3002\uff0c\uff01\uff1f\uff1b\uff1a\u300d\u300f\uff09\u3011\u300b\u2026,.!?;:)]}\u201d\u2019'));
   const OPEN = new Set(Array.from('\u300c\u300e\uff08\u3010\u300a([\u201c\u2018'));
   const squash = (text) => text.replace(/\s+/gu, '');
@@ -16,7 +15,7 @@
   try {
     words = new Intl.Segmenter('zh-Hant', { granularity: 'word' });
     graphemes = new Intl.Segmenter('zh-Hant', { granularity: 'grapheme' });
-  } catch { /* The fallback still preserves all characters. */ }
+  } catch {}
   const chars = (text) => graphemes ? [...graphemes.segment(text)].map((s) => s.segment) : Array.from(text);
 
   function tokens(text) {
@@ -35,8 +34,6 @@
     return result;
   }
 
-  // Balanced word wrapping. First prefer lexical boundaries, then break only
-  // a token that is itself wider than the safe area. Never drop punctuation.
   function wrapBalanced(context, phrase, width) {
     let parts = tokens(phrase.trim());
     parts = parts.flatMap((part) => {
@@ -75,82 +72,33 @@
 
   function requestedPhrases(item) {
     if (Array.isArray(item.lines) && item.lines.length && item.lines.every((line) => typeof line === 'string' && line.trim())) {
-      // A layout hint cannot silently replace the actual message.
       if (squash(item.lines.join('')) === squash(item.text)) return item.lines.map((line) => line.trim());
       console.warn('Ignored mismatching lines for item', item.id || '');
     }
     if (/\n/.test(item.text)) return item.text.replace(/\r\n?/g, '\n').split('\n').map((p) => p.trim()).filter(Boolean);
-    // Phrase breaks, not character-per-line vertical writing.
     const result = item.text.match(/[^\u3002\uff01\uff1f\uff1b\uff0c!?;\n]+[\u3002\uff01\uff1f\uff1b\uff0c!?;]*[\u300d\u300f\uff09\u3011\u300b\u201d\u2019]*|[\u3002\uff01\uff1f\uff1b\uff0c!?;]+/gu);
     return (result || [item.text]).map((p) => p.trim()).filter(Boolean);
   }
 
-  // A single design grid is shared by the screen canvas and its PNG export.
-  // The text area is below the red title plaque and above the lake foreground.
-  const DESIGN = Object.freeze({
-    width: WIDTH, height: HEIGHT,
-    textLeft: 115, textRight: 965, textTop: 480, textBottom: 1136,
-    centerX: WIDTH / 2, centerY: (480 + 1136) / 2
-  });
-
   function layout(context, item, options = {}) {
-    if (!item || typeof item.text !== 'string' || !item.text.trim()) {
-      throw new Error('A non-empty message is required');
-    }
-    const width = clamp(options.textWidth, 620, 850, 790);
-    const top = DESIGN.textTop, bottom = DESIGN.textBottom;
-    const max = Math.round(clamp(options.maxFontSize, 42, 82, 72));
-    const min = Math.round(clamp(options.minFontSize, 18, 36, 24));
+    const width = clamp(options.textWidth, 620, 830, 790);
+    const top = 487, bottom = 1090, available = bottom - top;
+    const max = clamp(options.maxFontSize, 42, 82, 72);
+    const min = clamp(options.minFontSize, 18, 36, 24);
     const phrases = requestedPhrases(item);
-    context.save();
-    try {
-      // Explicit alignment prevents a brand/header draw or a previous draw from
-      // leaking left alignment into measurement of the message.
-      context.textAlign = 'center';
-      context.textBaseline = 'alphabetic';
-      context.direction = 'ltr';
-      for (let size = max; size >= min; size--) {
-        context.font = `600 ${size}px ${SERIF}`;
-        const lines = phrases.flatMap((phrase) => wrapBalanced(context, phrase, width));
-        // Keep the exact pitch used by the preceding release, independently of
-        // decoration. In particular, removing rules must NOT change 1.57 to
-        // 1.48 and pull the lines closer together. An older showDividers=false
-        // config keeps its existing compact pitch, but never paints dividers.
-        const legacyLoosePitch = options.showDividers !== false && lines.length > 1 && lines.length <= 8 && size >= 38;
-        const lineHeight = size * (legacyLoosePitch ? 1.57 : 1.48);
-        const metrics = lines.map((text, index) => {
-          const m = context.measureText(text);
-          const finite = (value, fallback) => Number.isFinite(value) ? value : fallback;
-          return {
-            text, offset: index * lineHeight,
-            ascent: finite(m.actualBoundingBoxAscent, size * .90),
-            descent: finite(m.actualBoundingBoxDescent, size * .14),
-            inkLeft: finite(m.actualBoundingBoxLeft, m.width / 2),
-            inkRight: finite(m.actualBoundingBoxRight, m.width / 2)
-          };
-        });
-        const inkTop = Math.min(...metrics.map((m) => m.offset - m.ascent));
-        const inkBottom = Math.max(...metrics.map((m) => m.offset + m.descent));
-        const height = inkBottom - inkTop;
-        if (height > bottom - top) continue;
-        const start = DESIGN.centerY - (inkTop + inkBottom) / 2;
-        const rows = metrics.map((m) => {
-          // Full-width punctuation and serif side bearings have uneven blank
-          // space. Center the actual painted ink, not merely the advance width.
-          const x = DESIGN.centerX + (m.inkLeft - m.inkRight) / 2;
-          const y = start + m.offset;
-          return { text: m.text, x, y, left: x - m.inkLeft, right: x + m.inkRight,
-            top: y - m.ascent, bottom: y + m.descent };
-        });
-        if (rows.some((r) => r.left < DESIGN.textLeft || r.right > DESIGN.textRight)) continue;
-        return {
-          lines, rows, size, lineHeight, start, width, top, bottom, height,
-          centerX: DESIGN.centerX, centerY: DESIGN.centerY, align: 'center',
-          ascent: Math.max(...metrics.map((m) => m.ascent)),
-          descent: Math.max(...metrics.map((m) => m.descent)), dividers: false
-        };
+    for (let size = max; size >= min; size--) {
+      context.font = `600 ${size}px ${SERIF}`;
+      const lines = phrases.flatMap((phrase) => wrapBalanced(context, phrase, width));
+      const metrics = context.measureText('\u795eMg');
+      const ascent = metrics.actualBoundingBoxAscent || size * .9;
+      const descent = Math.max(metrics.actualBoundingBoxDescent || size * .18, size * .14);
+      const lineHeight = size * 1.50;
+      const height = ascent + descent + (lines.length - 1) * lineHeight;
+      if (height <= available) {
+        const start = top + (available - height) / 2 + ascent;
+        return { lines, size, lineHeight, start, width, top, bottom, ascent, descent };
       }
-    } finally { context.restore(); }
+    }
     throw new Error('Message exceeds the card safe area; use shorter content or fewer manual breaks');
   }
 
@@ -170,25 +118,19 @@
     });
   }
 
-  function diamond(context, x, y, radius = 9) {
-    context.beginPath(); context.moveTo(x, y - radius);
-    context.quadraticCurveTo(x + radius * .28, y - radius * .28, x + radius, y);
-    context.quadraticCurveTo(x + radius * .28, y + radius * .28, x, y + radius);
-    context.quadraticCurveTo(x - radius * .28, y + radius * .28, x - radius, y);
-    context.quadraticCurveTo(x - radius * .28, y - radius * .28, x, y - radius);
-    context.fill();
-  }
   function rounded(context, x, y, w, h, r) {
     context.beginPath(); context.moveTo(x+r,y);
     context.arcTo(x+w,y,x+w,y+h,r); context.arcTo(x+w,y+h,x,y+h,r);
     context.arcTo(x,y+h,x,y,r); context.arcTo(x,y,x+w,y,r); context.closePath();
   }
+
   function single(context, text, size, maxWidth, family = SERIF, weight = 600) {
     while (size > 12) {
       context.font = `${weight} ${size}px ${family}`;
-      if (context.measureText(text).width <= maxWidth) return;
+      if (context.measureText(text).width <= maxWidth) return size;
       size--;
     }
+    return size;
   }
 
   function fallbackArt(context) {
@@ -217,63 +159,83 @@
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas 2D is not supported');
     let artwork = null;
-    const assetUrl = new URL('./assets/card-background.webp?v=centered-reference-2', document.baseURI);
+    const assetUrl = new URL('./assets/card-background.webp', document.baseURI);
     const ready = loadImage(assetUrl.href).then((value) => {
       artwork = value;
       if (!value) console.warn('Card background unavailable; using local vector fallback.');
       return Boolean(value);
     });
+
     function render(item) {
-      // Layout first: invalid content does not erase the previous successful card.
       const fitted = layout(context,item,config.card || {});
       context.save();
       context.setTransform(1,0,0,1,0,0); context.globalAlpha=1;
       context.clearRect(0,0,WIDTH,HEIGHT);
       if (artwork) context.drawImage(artwork,0,0,WIDTH,HEIGHT); else fallbackArt(context);
-      context.save();context.translate(736,170);context.scale(129/rabbit.width,146/rabbit.height);
-      context.fillStyle=config.rabbitTone==='white'?'#ffffff':'#000000';context.fill(rabbit.path);context.restore();
-      context.fillStyle='#f6e5b6';context.textAlign='left';context.textBaseline='alphabetic';
-      const brand=String(config.brand || '\u99ac\u529b\u5168\u958b \u00b7 \u4e2d\u79cb\u4f73\u7bc0');
-      single(context,brand,30,492);context.fillText(brand,80,105);
-      context.strokeStyle='#c8aa64';context.lineWidth=1;context.beginPath();context.moveTo(81,119);context.lineTo(365,119);context.stroke();
-      context.fillStyle='#ded7b7';
-      const event=String(config.eventLine || '2026.09.19 \u00b7 \u65b0\u5e97\u6587\u5c71\u8fb2\u5834');
-      single(context,event,22,475,SERIF,500);context.fillText(event,80,150);
-      context.textAlign='center';
-      const red=context.createLinearGradient(0,380,0,446);red.addColorStop(0,'#803039');red.addColorStop(1,'#65252e');
-      rounded(context,321,380,438,68,34);context.fillStyle=red;context.fill();
-      context.strokeStyle='#e2bd6d';context.lineWidth=1.8;context.stroke();
-      context.fillStyle='#e6c16f';diamond(context,303,414,7);diamond(context,777,414,7);
-      const label=String(config.cardTitle || '\u4eca\u665a \u795e\u7d66\u4f60\u7684\u8a71');
-      context.fillStyle='#fff6df';single(context,label,35,394);context.fillText(label,540,426);
 
-      context.font=`600 ${fitted.size}px ${SERIF}`;
-      context.fillStyle='#fff8e6';context.direction='ltr';
-      context.textAlign='center';context.textBaseline='alphabetic';
-      // Body rows keep their measured ink centers and their original baselines.
-      // No rules, diamonds, dots, or other ornaments are painted in the gaps.
-      for (const row of fitted.rows) {
-        context.fillText(row.text,row.x,row.y);
-      }
-
-      // The English caption lives below the reading area, inside the gold frame.
-      // It does not consume any body space or change the established line pitch.
+      // Rabbit in the moon.
       context.save();
-      context.font=`600 22px Georgia,${SERIF}`;
-      context.fillStyle='#ecd59a';
-      context.shadowColor='rgba(3, 28, 22, 0.85)';
-      context.shadowBlur=4;
-      const caption='A WORD FOR YOU';
-      const captionMetrics=context.measureText(caption);
-      const captionLeft=Number.isFinite(captionMetrics.actualBoundingBoxLeft) ? captionMetrics.actualBoundingBoxLeft : captionMetrics.width/2;
-      const captionRight=Number.isFinite(captionMetrics.actualBoundingBoxRight) ? captionMetrics.actualBoundingBoxRight : captionMetrics.width/2;
-      context.fillText(caption,DESIGN.centerX+(captionLeft-captionRight)/2,1300);
+      context.translate(736,170);
+      context.scale(129/rabbit.width,146/rabbit.height);
+      context.fillStyle=config.rabbitTone==='white'?'#ffffff':'#000000';
+      context.fill(rabbit.path);
       context.restore();
-      // No blessing sentence, citation, reference, category, ID, or guide line.
+
+      const brand=String(config.brand || '馬力全開 · 中秋佳節');
+      const event=String(config.eventLine || '2026.09.19 · 新店文山農場');
+      const label=String(config.cardTitle || '今晚 神給你的話');
+
+      // Top-left hierarchy: phrase descriptor first, then the card's main label.
+      context.textBaseline='alphabetic';
+      context.textAlign='left';
+      context.fillStyle='#e2c477';
+      single(context,'A WORD FOR YOU',24,280,SERIF,700);
+      context.fillText('A WORD FOR YOU',82,108);
+      context.strokeStyle='#d7b772';
+      context.lineWidth=1.15;
+      context.beginPath();
+      context.moveTo(82,118); context.lineTo(270,118);
+      context.stroke();
+
+      const red=context.createLinearGradient(0,134,0,198);
+      red.addColorStop(0,'#803039'); red.addColorStop(1,'#65252e');
+      rounded(context,80,138,360,64,32);
+      context.fillStyle=red; context.fill();
+      context.strokeStyle='#e2bd6d'; context.lineWidth=1.8; context.stroke();
+      context.textAlign='center';
+      context.fillStyle='#fff6df';
+      single(context,label,33,312,SERIF,700);
+      context.fillText(label,260,180);
+
+      // Main centered message block.
+      context.font=`600 ${fitted.size}px ${SERIF}`;
+      context.fillStyle='#fff8e6';
+      context.textAlign='center';
+      context.textBaseline='alphabetic';
+      fitted.lines.forEach((line,index)=>{
+        const baseline=fitted.start+index*fitted.lineHeight;
+        context.fillText(line,540,baseline);
+      });
+
+      // Bottom centered event identity; supportive, not competing with the message.
+      context.textAlign='center';
+      context.fillStyle='#f6e5b6';
+      single(context,brand,30,620,SERIF,700);
+      context.fillText(brand,540,1200);
+      context.strokeStyle='#c8aa64';
+      context.lineWidth=1;
+      context.beginPath();
+      context.moveTo(385,1214); context.lineTo(695,1214);
+      context.stroke();
+      context.fillStyle='#ded7b7';
+      single(context,event,22,580,SERIF,500);
+      context.fillText(event,540,1245);
+
       context.restore();
       return fitted;
     }
     return {ready,render};
   }
-  window.MoonCardRenderer=Object.freeze({create,layout,wrapBalanced,design:DESIGN,version:'clean-centered-3'});
+
+  window.MoonCardRenderer=Object.freeze({create,layout,wrapBalanced});
 })();
